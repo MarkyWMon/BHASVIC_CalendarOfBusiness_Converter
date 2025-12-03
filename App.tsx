@@ -99,35 +99,44 @@ const App: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 py-12 px-4 sm:px-6 lg:px-8 font-sans">
-      <div className="max-w-3xl mx-auto">
-        <div className="text-center mb-10">
-          <h1 className="text-4xl font-extrabold text-gray-900 tracking-tight mb-2">
-            BHASVIC Calendar Converter
-          </h1>
-          <p className="text-lg text-gray-600">
-            Convert the college Excel schedule into standard Calendar files (.ics)
-          </p>
+    <div className="min-h-screen bg-white">
+      {/* Brand Header */}
+      <div className="border-t-[8px] border-bhasvic-red bg-white shadow-sm mb-8">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <div className="text-center md:text-left">
+            <h1 className="text-5xl font-display font-bold text-black tracking-tight mb-2">
+              BHASVIC
+            </h1>
+            <h2 className="text-xl font-display text-gray-600 font-light">
+              Calendar Converter
+            </h2>
+          </div>
         </div>
+      </div>
 
-        <div className="space-y-6">
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 pb-12">
+        <div className="space-y-8">
           {/* File Upload */}
-          <FileUpload onFileSelect={handleFileSelect} selectedFileName={file?.name || null} />
+          <section>
+            <h3 className="text-2xl font-display font-bold text-bhasvic-navy mb-4">1. Upload Schedule</h3>
+            <FileUpload onFileSelect={handleFileSelect} selectedFileName={file?.name || null} />
+          </section>
 
           {/* Configuration */}
           {file && (
-            <div className="animate-fade-in-down">
+            <section className="animate-fade-in-down">
+              <h3 className="text-2xl font-display font-bold text-bhasvic-navy mb-4">2. Configuration</h3>
               <OptionsForm options={options} setOptions={setOptions} disabled={isProcessing} />
               
-              <div className="flex justify-center mb-8">
+              <div className="flex justify-center md:justify-start mt-6">
                 <button
                   onClick={handleProcess}
                   disabled={isProcessing}
                   className={`
-                    w-full md:w-auto px-8 py-3 rounded-md shadow-lg text-white font-bold text-lg transition-all transform hover:-translate-y-1
+                    w-full md:w-auto px-10 py-4 rounded-none shadow-md text-white font-display font-bold text-lg tracking-wide transition-all
                     ${isProcessing 
                       ? 'bg-gray-400 cursor-not-allowed' 
-                      : 'bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500'
+                      : 'bg-bhasvic-red hover:bg-bhasvic-darkRed focus:outline-none focus:ring-4 focus:ring-red-200'
                     }
                   `}
                 >
@@ -137,50 +146,56 @@ const App: React.FC = () => {
                         <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                         <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                       </svg>
-                      Processing...
+                      PROCESSING...
                     </span>
                   ) : (
-                    'Convert to Calendar'
+                    'CONVERT CALENDAR'
                   )}
                 </button>
               </div>
-            </div>
+            </section>
           )}
 
           {/* Logs */}
-          <LogArea logs={logs} />
+          <section>
+             {logs.length > 0 && (
+                <div className="mt-8">
+                  <LogArea logs={logs} />
+                </div>
+             )}
+          </section>
 
           {/* Results / Download */}
           {result && (
-            <div className="bg-white rounded-lg shadow-lg border-t-4 border-green-500 p-6 animate-fade-in">
-              <h3 className="text-xl font-bold text-gray-800 mb-4">Conversion Complete</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="p-4 border rounded-md bg-gray-50 flex flex-col justify-between">
+            <div className="bg-gray-50 border-l-[6px] border-bhasvic-green p-6 animate-fade-in shadow-sm">
+              <h3 className="text-2xl font-display font-bold text-black mb-6">Conversion Complete</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="bg-white p-6 border border-gray-100 shadow-sm flex flex-col justify-between h-full">
                   <div>
-                    <h4 className="font-semibold text-gray-900">Main Calendar</h4>
-                    <p className="text-sm text-gray-500 mt-1">{result.allEvents.length} events</p>
+                    <h4 className="font-display font-bold text-xl text-bhasvic-navy">Main Calendar</h4>
+                    <p className="text-gray-500 mt-2 font-light">{result.allEvents.length} events found.</p>
                   </div>
                   <button
                     onClick={() => downloadFile(result.mainIcsContent, 'BHASVIC_Calendar.ics')}
-                    className="mt-4 w-full inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700"
+                    className="mt-6 w-full inline-flex items-center justify-center px-6 py-3 border border-transparent text-base font-medium text-white bg-bhasvic-navy hover:bg-bhasvic-lightNavy transition-colors rounded-none"
                   >
-                    <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
-                    Download Main
+                    <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                    Download Main .ics
                   </button>
                 </div>
 
                 {result.publicIcsContent && (
-                  <div className="p-4 border rounded-md bg-gray-50 flex flex-col justify-between">
+                  <div className="bg-white p-6 border border-gray-100 shadow-sm flex flex-col justify-between h-full">
                     <div>
-                      <h4 className="font-semibold text-gray-900">Public Calendar</h4>
-                      <p className="text-sm text-gray-500 mt-1">{result.publicEvents.length} events</p>
+                      <h4 className="font-display font-bold text-xl text-bhasvic-orange">Public Calendar</h4>
+                      <p className="text-gray-500 mt-2 font-light">{result.publicEvents.length} public events found.</p>
                     </div>
                     <button
                       onClick={() => downloadFile(result.publicIcsContent!, 'BHASVIC_Public_Calendar.ics')}
-                      className="mt-4 w-full inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-blue-700 bg-blue-100 hover:bg-blue-200"
+                      className="mt-6 w-full inline-flex items-center justify-center px-6 py-3 border border-transparent text-base font-medium text-white bg-bhasvic-orange hover:bg-[#D05829] transition-colors rounded-none"
                     >
-                      <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
-                      Download Public
+                      <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                      Download Public .ics
                     </button>
                   </div>
                 )}
