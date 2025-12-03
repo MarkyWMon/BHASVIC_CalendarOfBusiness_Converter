@@ -1,0 +1,5 @@
+{
+  "name": "BHASVIC Calendar Converter",
+  "description": "Converts the BHASVIC Calendar of Business Excel spreadsheet into ICS format for Outlook, Google, and Apple Calendars.",
+  "requestFramePermissions": []
+}
