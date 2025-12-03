@@ -28,4 +28,6 @@ export interface ParsedResult {
   publicEvents: CalendarEvent[];
   mainIcsContent: string;
   publicIcsContent: string | null;
+  mainCsvContent: string;
+  publicCsvContent: string | null;
 }

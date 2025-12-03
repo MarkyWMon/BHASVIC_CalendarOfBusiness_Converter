@@ -2,8 +2,10 @@ import React, { useState } from 'react';
 import FileUpload from './components/FileUpload';
 import OptionsForm from './components/OptionsForm';
 import LogArea from './components/LogArea';
+import EventPreview from './components/EventPreview';
 import { parseWorkbook } from './services/excelParser';
 import { generateICS } from './services/icsGenerator';
+import { generateCSV } from './services/csvGenerator';
 import { ProcessingOptions, ProcessingLog, ParsedResult } from './types';
 
 const App: React.FC = () => {
@@ -70,11 +72,20 @@ const App: React.FC = () => {
         addLog('Skipping public calendar generation (no public events found).', 'warning');
       }
 
+      // 4. Generate CSV Strings
+      addLog('Generating CSV file content...', 'info');
+      const mainCsvContent = generateCSV(allEvents, options.includeInitials);
+      const publicCsvContent = (options.createPublicCalendar && publicEvents.length > 0) 
+        ? generateCSV(publicEvents, options.includeInitials) 
+        : null;
+
       setResult({
         allEvents,
         publicEvents,
         mainIcsContent,
-        publicIcsContent
+        publicIcsContent,
+        mainCsvContent,
+        publicCsvContent
       });
 
       addLog('Conversion completed successfully! Ready for download.', 'success');
@@ -87,8 +98,9 @@ const App: React.FC = () => {
     }
   };
 
-  const downloadFile = (content: string, filename: string) => {
-    const blob = new Blob([content], { type: 'text/calendar;charset=utf-8' });
+  const downloadFile = (content: string, filename: string, type: 'ics' | 'csv') => {
+    const mimeType = type === 'ics' ? 'text/calendar;charset=utf-8' : 'text/csv;charset=utf-8';
+    const blob = new Blob([content], { type: mimeType });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
@@ -165,41 +177,80 @@ const App: React.FC = () => {
              )}
           </section>
 
-          {/* Results / Download */}
+          {/* Results & Preview */}
           {result && (
-            <div className="bg-gray-50 border-l-[6px] border-bhasvic-green p-6 animate-fade-in shadow-sm">
-              <h3 className="text-2xl font-display font-bold text-black mb-6">Conversion Complete</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="bg-white p-6 border border-gray-100 shadow-sm flex flex-col justify-between h-full">
-                  <div>
-                    <h4 className="font-display font-bold text-xl text-bhasvic-navy">Main Calendar</h4>
-                    <p className="text-gray-500 mt-2 font-light">{result.allEvents.length} events found.</p>
-                  </div>
-                  <button
-                    onClick={() => downloadFile(result.mainIcsContent, 'BHASVIC_Calendar.ics')}
-                    className="mt-6 w-full inline-flex items-center justify-center px-6 py-3 border border-transparent text-base font-medium text-white bg-bhasvic-navy hover:bg-bhasvic-lightNavy transition-colors rounded-none"
-                  >
-                    <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
-                    Download Main .ics
-                  </button>
-                </div>
-
-                {result.publicIcsContent && (
-                  <div className="bg-white p-6 border border-gray-100 shadow-sm flex flex-col justify-between h-full">
+            <div className="animate-fade-in space-y-8">
+              
+              <div className="bg-gray-50 border-l-[6px] border-bhasvic-green p-6 shadow-sm">
+                <h3 className="text-2xl font-display font-bold text-black mb-6">3. Download Files</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  
+                  {/* Main Calendar Card */}
+                  <div className="bg-white p-6 border border-gray-100 shadow-sm flex flex-col h-full">
                     <div>
-                      <h4 className="font-display font-bold text-xl text-bhasvic-orange">Public Calendar</h4>
-                      <p className="text-gray-500 mt-2 font-light">{result.publicEvents.length} public events found.</p>
+                      <h4 className="font-display font-bold text-xl text-bhasvic-navy flex items-center">
+                        Main Calendar
+                        <span className="ml-3 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                          {result.allEvents.length} Events
+                        </span>
+                      </h4>
+                      <p className="text-gray-500 mt-2 font-light text-sm">Includes all extracted events.</p>
                     </div>
-                    <button
-                      onClick={() => downloadFile(result.publicIcsContent!, 'BHASVIC_Public_Calendar.ics')}
-                      className="mt-6 w-full inline-flex items-center justify-center px-6 py-3 border border-transparent text-base font-medium text-white bg-bhasvic-orange hover:bg-[#D05829] transition-colors rounded-none"
-                    >
-                      <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
-                      Download Public .ics
-                    </button>
+                    <div className="mt-6 space-y-3">
+                      <button
+                        onClick={() => downloadFile(result.mainIcsContent, 'BHASVIC_Calendar.ics', 'ics')}
+                        className="w-full inline-flex items-center justify-center px-6 py-3 border border-transparent text-base font-medium text-white bg-bhasvic-navy hover:bg-bhasvic-lightNavy transition-colors rounded-none"
+                      >
+                         <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                        Download .ICS
+                      </button>
+                      <button
+                         onClick={() => downloadFile(result.mainCsvContent, 'BHASVIC_Calendar.csv', 'csv')}
+                         className="w-full inline-flex items-center justify-center px-6 py-3 border-2 border-bhasvic-navy text-base font-medium text-bhasvic-navy hover:bg-blue-50 transition-colors rounded-none"
+                      >
+                         <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                         Download .CSV
+                      </button>
+                    </div>
                   </div>
-                )}
+
+                  {/* Public Calendar Card */}
+                  {result.publicIcsContent && (
+                    <div className="bg-white p-6 border border-gray-100 shadow-sm flex flex-col h-full">
+                      <div>
+                        <h4 className="font-display font-bold text-xl text-bhasvic-orange flex items-center">
+                          Public Calendar
+                          <span className="ml-3 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-800">
+                             {result.publicEvents.length} Events
+                          </span>
+                        </h4>
+                        <p className="text-gray-500 mt-2 font-light text-sm">Filtered for public events only.</p>
+                      </div>
+                      <div className="mt-6 space-y-3">
+                        <button
+                          onClick={() => downloadFile(result.publicIcsContent!, 'BHASVIC_Public_Calendar.ics', 'ics')}
+                          className="w-full inline-flex items-center justify-center px-6 py-3 border border-transparent text-base font-medium text-white bg-bhasvic-orange hover:bg-[#D05829] transition-colors rounded-none"
+                        >
+                          <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                          Download .ICS
+                        </button>
+                        {result.publicCsvContent && (
+                          <button
+                            onClick={() => downloadFile(result.publicCsvContent!, 'BHASVIC_Public_Calendar.csv', 'csv')}
+                            className="w-full inline-flex items-center justify-center px-6 py-3 border-2 border-bhasvic-orange text-base font-medium text-bhasvic-orange hover:bg-orange-50 transition-colors rounded-none"
+                          >
+                            <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                            Download .CSV
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
+
+              {/* Event Preview Section */}
+              <EventPreview events={result.allEvents} />
             </div>
           )}
         </div>
