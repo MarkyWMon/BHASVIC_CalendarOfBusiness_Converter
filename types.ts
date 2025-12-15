@@ -30,4 +30,6 @@ export interface ParsedResult {
   publicIcsContent: string | null;
   mainCsvContent: string;
   publicCsvContent: string | null;
+  mainPdfBlob: Blob | null;
+  publicPdfBlob: Blob | null;
 }

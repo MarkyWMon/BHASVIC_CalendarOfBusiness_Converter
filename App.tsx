@@ -6,6 +6,7 @@ import EventPreview from './components/EventPreview';
 import { parseWorkbook } from './services/excelParser';
 import { generateICS } from './services/icsGenerator';
 import { generateCSV } from './services/csvGenerator';
+import { generatePDF } from './services/pdfGenerator';
 import { ProcessingOptions, ProcessingLog, ParsedResult } from './types';
 
 const App: React.FC = () => {
@@ -79,13 +80,22 @@ const App: React.FC = () => {
         ? generateCSV(publicEvents, options.includeInitials) 
         : null;
 
+      // 5. Generate PDFs
+      addLog('Generating PDF documents...', 'info');
+      const mainPdfBlob = generatePDF(allEvents, options.includeInitials, 'Calendar of Business');
+      const publicPdfBlob = (options.createPublicCalendar && publicEvents.length > 0)
+        ? generatePDF(publicEvents, options.includeInitials, 'Public Calendar of Business')
+        : null;
+
       setResult({
         allEvents,
         publicEvents,
         mainIcsContent,
         publicIcsContent,
         mainCsvContent,
-        publicCsvContent
+        publicCsvContent,
+        mainPdfBlob,
+        publicPdfBlob
       });
 
       addLog('Conversion completed successfully! Ready for download.', 'success');
@@ -98,9 +108,13 @@ const App: React.FC = () => {
     }
   };
 
-  const downloadFile = (content: string, filename: string, type: 'ics' | 'csv') => {
-    const mimeType = type === 'ics' ? 'text/calendar;charset=utf-8' : 'text/csv;charset=utf-8';
-    const blob = new Blob([content], { type: mimeType });
+  const downloadFile = (content: string | Blob, filename: string, type: 'ics' | 'csv' | 'pdf') => {
+    let mimeType = '';
+    if (type === 'ics') mimeType = 'text/calendar;charset=utf-8';
+    if (type === 'csv') mimeType = 'text/csv;charset=utf-8';
+    if (type === 'pdf') mimeType = 'application/pdf';
+
+    const blob = content instanceof Blob ? content : new Blob([content], { type: mimeType });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
@@ -108,6 +122,7 @@ const App: React.FC = () => {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+    URL.revokeObjectURL(url);
   };
 
   return (
@@ -197,19 +212,26 @@ const App: React.FC = () => {
                       <p className="text-gray-500 mt-2 font-light text-sm">Includes all extracted events.</p>
                     </div>
                     <div className="mt-6 space-y-3">
+                      <div className="grid grid-cols-2 gap-3">
+                        <button
+                          onClick={() => downloadFile(result.mainIcsContent, 'BHASVIC_Calendar.ics', 'ics')}
+                          className="flex items-center justify-center px-4 py-3 border border-transparent text-sm font-medium text-white bg-bhasvic-navy hover:bg-bhasvic-lightNavy transition-colors rounded-none"
+                        >
+                          <span className="font-bold mr-1">ICS</span> (Outlook)
+                        </button>
+                        <button
+                           onClick={() => downloadFile(result.mainCsvContent, 'BHASVIC_Calendar.csv', 'csv')}
+                           className="flex items-center justify-center px-4 py-3 border-2 border-bhasvic-navy text-sm font-medium text-bhasvic-navy hover:bg-blue-50 transition-colors rounded-none"
+                        >
+                           <span className="font-bold mr-1">CSV</span> (Excel)
+                        </button>
+                      </div>
                       <button
-                        onClick={() => downloadFile(result.mainIcsContent, 'BHASVIC_Calendar.ics', 'ics')}
-                        className="w-full inline-flex items-center justify-center px-6 py-3 border border-transparent text-base font-medium text-white bg-bhasvic-navy hover:bg-bhasvic-lightNavy transition-colors rounded-none"
+                         onClick={() => downloadFile(result.mainPdfBlob!, 'BHASVIC_Calendar.pdf', 'pdf')}
+                         className="w-full inline-flex items-center justify-center px-6 py-3 border border-bhasvic-red text-base font-medium text-white bg-bhasvic-red hover:bg-bhasvic-darkRed transition-colors rounded-none"
                       >
-                         <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
-                        Download .ICS
-                      </button>
-                      <button
-                         onClick={() => downloadFile(result.mainCsvContent, 'BHASVIC_Calendar.csv', 'csv')}
-                         className="w-full inline-flex items-center justify-center px-6 py-3 border-2 border-bhasvic-navy text-base font-medium text-bhasvic-navy hover:bg-blue-50 transition-colors rounded-none"
-                      >
-                         <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
-                         Download .CSV
+                         <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 2H5a2 2 0 00-2 2v14a2 2 0 002 2z"></path></svg>
+                         Download Printable PDF
                       </button>
                     </div>
                   </div>
@@ -227,20 +249,29 @@ const App: React.FC = () => {
                         <p className="text-gray-500 mt-2 font-light text-sm">Filtered for public events only.</p>
                       </div>
                       <div className="mt-6 space-y-3">
-                        <button
-                          onClick={() => downloadFile(result.publicIcsContent!, 'BHASVIC_Public_Calendar.ics', 'ics')}
-                          className="w-full inline-flex items-center justify-center px-6 py-3 border border-transparent text-base font-medium text-white bg-bhasvic-orange hover:bg-[#D05829] transition-colors rounded-none"
-                        >
-                          <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
-                          Download .ICS
-                        </button>
-                        {result.publicCsvContent && (
+                        <div className="grid grid-cols-2 gap-3">
                           <button
-                            onClick={() => downloadFile(result.publicCsvContent!, 'BHASVIC_Public_Calendar.csv', 'csv')}
-                            className="w-full inline-flex items-center justify-center px-6 py-3 border-2 border-bhasvic-orange text-base font-medium text-bhasvic-orange hover:bg-orange-50 transition-colors rounded-none"
+                            onClick={() => downloadFile(result.publicIcsContent!, 'BHASVIC_Public_Calendar.ics', 'ics')}
+                            className="flex items-center justify-center px-4 py-3 border border-transparent text-sm font-medium text-white bg-bhasvic-orange hover:bg-[#D05829] transition-colors rounded-none"
                           >
-                            <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
-                            Download .CSV
+                             <span className="font-bold mr-1">ICS</span> (Outlook)
+                          </button>
+                          {result.publicCsvContent && (
+                            <button
+                              onClick={() => downloadFile(result.publicCsvContent!, 'BHASVIC_Public_Calendar.csv', 'csv')}
+                              className="flex items-center justify-center px-4 py-3 border-2 border-bhasvic-orange text-sm font-medium text-bhasvic-orange hover:bg-orange-50 transition-colors rounded-none"
+                            >
+                               <span className="font-bold mr-1">CSV</span> (Excel)
+                            </button>
+                          )}
+                        </div>
+                        {result.publicPdfBlob && (
+                          <button
+                            onClick={() => downloadFile(result.publicPdfBlob!, 'BHASVIC_Public_Calendar.pdf', 'pdf')}
+                            className="w-full inline-flex items-center justify-center px-6 py-3 border border-bhasvic-orange text-base font-medium text-white bg-bhasvic-orange hover:bg-[#D05829] transition-colors rounded-none"
+                          >
+                            <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 2H5a2 2 0 00-2 2v14a2 2 0 002 2z"></path></svg>
+                            Download Printable PDF
                           </button>
                         )}
                       </div>
