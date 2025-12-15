@@ -3,7 +3,8 @@ import { CalendarEvent, ProcessingOptions, ProcessingLog } from '../types';
 
 // Regex Patterns
 const TIME_PATTERN = /(\d{1,2})[:\.](\d{2})(?:\s*-\s*|\s*to\s*)(\d{1,2})[:\.](\d{2})/;
-const INITIALS_PATTERN = /\(([A-Z]{2,3})\)/;
+// Updated to capture initials with at least one bracket (e.g., "(ABC)", "(ABC", "ABC)")
+const INITIALS_PATTERN = /[\(\[]([A-Z]{2,3})[\)\]]?|([A-Z]{2,3})[\)\]]/;
 const PUBLIC_MARKER_PATTERN = /\s+-\s*[pP](?:\s|$|\))/;
 
 interface ExtractionResult {
@@ -65,11 +66,11 @@ const extractEventDetails = (rawText: string): ExtractionResult => {
   }
 
   // 3. Detect and extract Staff Initials
-  // We check the modified text, but sometimes initials contain the ' - p' which we might have partially mangled
-  // So we look at the remaining text for standard initials
+  // We check the modified text. Pattern handles missing brackets on one side.
   const initialsMatch = text.match(INITIALS_PATTERN);
   if (initialsMatch) {
-    staffInitials = initialsMatch[1];
+    // Group 1 matches start bracket case, Group 2 matches end bracket case
+    staffInitials = initialsMatch[1] || initialsMatch[2];
     text = text.replace(initialsMatch[0], ' ');
   }
   
