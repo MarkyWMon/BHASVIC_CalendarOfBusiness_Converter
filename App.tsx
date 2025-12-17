@@ -64,27 +64,35 @@ const App: React.FC = () => {
 
       // 3. Generate ICS Strings
       addLog('Generating ICS file content...', 'info');
+      // Main calendar respects the option
       const mainIcsContent = generateICS(allEvents, options.includeInitials);
       
       let publicIcsContent: string | null = null;
       if (options.createPublicCalendar && publicEvents.length > 0) {
-        publicIcsContent = generateICS(publicEvents, options.includeInitials);
+        // Public calendar ALWAYS excludes initials
+        publicIcsContent = generateICS(publicEvents, false);
       } else if (options.createPublicCalendar) {
         addLog('Skipping public calendar generation (no public events found).', 'warning');
       }
 
       // 4. Generate CSV Strings
       addLog('Generating CSV file content...', 'info');
+      // Main calendar respects the option
       const mainCsvContent = generateCSV(allEvents, options.includeInitials);
       const publicCsvContent = (options.createPublicCalendar && publicEvents.length > 0) 
-        ? generateCSV(publicEvents, options.includeInitials) 
+        // Public calendar ALWAYS excludes initials
+        ? generateCSV(publicEvents, false) 
         : null;
 
       // 5. Generate PDFs
       addLog('Generating PDF documents...', 'info');
-      const mainPdfBlob = generatePDF(allEvents, options.includeInitials, 'Calendar of Business');
+      // Main calendar: Include initials (if selected), SHOW Public column
+      // Note: generatePDF is now async to handle image fetching
+      const mainPdfBlob = await generatePDF(allEvents, options.includeInitials, 'Calendar of Business', true);
+      
       const publicPdfBlob = (options.createPublicCalendar && publicEvents.length > 0)
-        ? generatePDF(publicEvents, options.includeInitials, 'Public Calendar of Business')
+        // Public calendar: Exclude initials, HIDE Public column, Title: "Public Calendar" (implicitly BHASVIC Public Calendar)
+        ? await generatePDF(publicEvents, false, 'Public Calendar', false)
         : null;
 
       setResult({

@@ -11,6 +11,8 @@ const COLORS = {
   white: [255, 255, 255]
 };
 
+const LOGO_URL = "https://i.postimg.cc/XN5gRCBn/round_logo_red_on_white_Edited_(1).png";
+
 const formatPdfDate = (date: Date): string => {
   return date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
 };
@@ -28,14 +30,34 @@ const groupEventsByMonth = (events: CalendarEvent[]) => {
   return Object.entries(groups).map(([month, events]) => ({ month, events }));
 };
 
-export const generatePDF = (events: CalendarEvent[], includeInitials: boolean, title: string): Blob => {
+const fetchLogo = async (): Promise<string | null> => {
+  try {
+    const response = await fetch(LOGO_URL, {
+      method: 'GET',
+      mode: 'cors', // Ensure CORS request
+      cache: 'force-cache'
+    });
+    if (!response.ok) return null;
+    const blob = await response.blob();
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result as string);
+      reader.readAsDataURL(blob);
+    });
+  } catch (error) {
+    console.warn("Could not load logo image for PDF", error);
+    return null;
+  }
+};
+
+export const generatePDF = async (events: CalendarEvent[], includeInitials: boolean, title: string, showPublicColumn: boolean = true): Promise<Blob> => {
   // Orientation 'p' (portrait), unit 'mm', format 'a4'
   const doc = new jsPDF('p', 'mm', 'a4');
   
   // -- Header --
   
   // BHASVIC Title
-  doc.setFont('helvetica', 'bold'); // Closest standard font to Poppins/Display
+  doc.setFont('helvetica', 'bold');
   doc.setFontSize(24);
   doc.setTextColor(COLORS.navy[0], COLORS.navy[1], COLORS.navy[2]);
   doc.text('BHASVIC', 14, 20);
@@ -51,13 +73,25 @@ export const generatePDF = (events: CalendarEvent[], includeInitials: boolean, t
   doc.setTextColor(COLORS.gray[0], COLORS.gray[1], COLORS.gray[2]);
   doc.text(`Generated on ${new Date().toLocaleDateString('en-GB')}`, 14, 34);
 
+  // Draw Logo (Fetch async)
+  const logoData = await fetchLogo();
+  if (logoData) {
+    // Position: Top right. 
+    // Previous vector center was (190, 24) with radius 9 (approx width 18).
+    // Let's place the image at x=181, y=15, width=18, height=18 to match roughly.
+    try {
+      doc.addImage(logoData, 'PNG', 181, 15, 18, 18);
+    } catch (e) {
+      console.warn("Error adding image to PDF", e);
+    }
+  }
+
   let finalY = 40;
 
   const grouped = groupEventsByMonth(events);
 
   grouped.forEach((group, index) => {
     // Check if we need a page break before the month title
-    // A4 height is ~297mm. If we are low on space (e.g., > 250), force break
     if (finalY > 250) {
       doc.addPage();
       finalY = 20;
@@ -76,23 +110,43 @@ export const generatePDF = (events: CalendarEvent[], includeInitials: boolean, t
 
     finalY += 5;
 
+    const tableHead = showPublicColumn 
+      ? [['Date', 'Time', 'Event Description', 'Public']] 
+      : [['Date', 'Time', 'Event Description']];
+
     const tableBody = group.events.map(e => {
       const timeStr = `${e.startTime} - ${e.endTime}`;
       let desc = e.description;
       if (includeInitials && e.staffInitials) {
         desc += ` (${e.staffInitials})`;
       }
-      return [
+      
+      const row = [
         formatPdfDate(e.date),
         timeStr,
-        desc,
-        e.isPublic ? 'Yes' : 'No'
+        desc
       ];
+
+      if (showPublicColumn) {
+        row.push(e.isPublic ? 'Yes' : 'No');
+      }
+
+      return row;
     });
+
+    const columnStyles: any = {
+      0: { cellWidth: 30 }, // Date
+      1: { cellWidth: 25 }, // Time
+      2: { cellWidth: 'auto' }, // Event
+    };
+
+    if (showPublicColumn) {
+      columnStyles[3] = { cellWidth: 15, halign: 'center' }; // Public
+    }
 
     autoTable(doc, {
       startY: finalY,
-      head: [['Date', 'Time', 'Event Description', 'Public']],
+      head: tableHead,
       body: tableBody,
       theme: 'grid',
       styles: {
@@ -110,12 +164,7 @@ export const generatePDF = (events: CalendarEvent[], includeInitials: boolean, t
         font: 'helvetica',
         halign: 'left'
       },
-      columnStyles: {
-        0: { cellWidth: 30 }, // Date
-        1: { cellWidth: 25 }, // Time
-        2: { cellWidth: 'auto' }, // Event
-        3: { cellWidth: 15, halign: 'center' } // Public
-      },
+      columnStyles: columnStyles,
       alternateRowStyles: {
         fillColor: [249, 250, 251] // Very light gray/blue
       },
@@ -125,6 +174,24 @@ export const generatePDF = (events: CalendarEvent[], includeInitials: boolean, t
     // Update Y for next loop
     finalY = (doc as any).lastAutoTable.finalY + 15;
   });
+
+  // -- Footer & Page Numbering --
+  const pageCount = doc.internal.getNumberOfPages();
+  for (let i = 1; i <= pageCount; i++) {
+    doc.setPage(i);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8);
+    doc.setTextColor(COLORS.gray[0], COLORS.gray[1], COLORS.gray[2]);
+    
+    // Draw a subtle line separator
+    doc.setDrawColor(220, 220, 220);
+    doc.setLineWidth(0.1);
+    doc.line(14, 285, 196, 285);
+
+    // Footer Text
+    doc.text('BHASVIC Calendar', 14, 290);
+    doc.text(`Page ${i} of ${pageCount}`, 196, 290, { align: 'right' });
+  }
 
   return doc.output('blob');
 };
