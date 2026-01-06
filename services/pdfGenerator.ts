@@ -111,8 +111,8 @@ export const generatePDF = async (events: CalendarEvent[], includeInitials: bool
     finalY += 5;
 
     const tableHead = showPublicColumn 
-      ? [['Date', 'Time', 'Event Description', 'Public']] 
-      : [['Date', 'Time', 'Event Description']];
+      ? [['Day', 'Date', 'Time', 'Event Description', 'Public']] 
+      : [['Day', 'Date', 'Time', 'Event Description']];
 
     const tableBody = group.events.map(e => {
       const timeStr = `${e.startTime} - ${e.endTime}`;
@@ -122,6 +122,7 @@ export const generatePDF = async (events: CalendarEvent[], includeInitials: bool
       }
       
       const row = [
+        e.date.toLocaleDateString('en-GB', { weekday: 'long' }),
         formatPdfDate(e.date),
         timeStr,
         desc
@@ -135,13 +136,14 @@ export const generatePDF = async (events: CalendarEvent[], includeInitials: bool
     });
 
     const columnStyles: any = {
-      0: { cellWidth: 30 }, // Date
-      1: { cellWidth: 25 }, // Time
-      2: { cellWidth: 'auto' }, // Event
+      0: { cellWidth: 25 }, // Day
+      1: { cellWidth: 30 }, // Date
+      2: { cellWidth: 25 }, // Time
+      3: { cellWidth: 'auto' }, // Event
     };
 
     if (showPublicColumn) {
-      columnStyles[3] = { cellWidth: 15, halign: 'center' }; // Public
+      columnStyles[4] = { cellWidth: 15, halign: 'center' }; // Public
     }
 
     autoTable(doc, {
@@ -176,7 +178,7 @@ export const generatePDF = async (events: CalendarEvent[], includeInitials: bool
   });
 
   // -- Footer & Page Numbering --
-  const pageCount = doc.internal.getNumberOfPages();
+  const pageCount = doc.getNumberOfPages();
   for (let i = 1; i <= pageCount; i++) {
     doc.setPage(i);
     doc.setFont('helvetica', 'normal');
