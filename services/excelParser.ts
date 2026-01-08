@@ -40,6 +40,44 @@ const parseTime = (h: string, m: string): string => {
   return `${h.padStart(2, '0')}:${m.padStart(2, '0')}`;
 };
 
+/**
+ * Ensures that any opened brackets are closed and cleans up trailing 
+ * punctuation/separators often left behind after parsing.
+ */
+const cleanAndBalanceText = (text: string): string => {
+  let cleaned = text.trim();
+  
+  // 1. Remove trailing dashes, colons, or stray opening brackets at the very end
+  // e.g., "Event (ABC -" becomes "Event (ABC"
+  cleaned = cleaned.replace(/[\s\-\:\(\[]+$/, '');
+
+  // 2. Balance brackets
+  const stack: string[] = [];
+  const openers = ['(', '['];
+  const closers = [')', ']'];
+  const map: Record<string, string> = { '(': ')', '[': ']' };
+
+  for (const char of cleaned) {
+    if (openers.includes(char)) {
+      stack.push(map[char]);
+    } else if (closers.includes(char)) {
+      if (stack.length > 0 && stack[stack.length - 1] === char) {
+        stack.pop();
+      }
+    }
+  }
+
+  // Append missing closing brackets from the stack
+  while (stack.length > 0) {
+    cleaned += stack.pop();
+  }
+
+  // 3. Final cleanup for empty brackets like "Event ()"
+  cleaned = cleaned.replace(/\(\s*\)/g, '').replace(/\[\s*\]/g, '').trim();
+  
+  return cleaned;
+};
+
 const extractEventDetails = (rawText: string): ExtractionResult => {
   let text = rawText.trim();
   let startTime: string | null = null;
@@ -57,28 +95,21 @@ const extractEventDetails = (rawText: string): ExtractionResult => {
   }
 
   // 2. Detect and extract Public Marker
-  // Check specifically for the marker pattern or if it was part of an initials block
   const publicMatch = text.match(PUBLIC_MARKER_PATTERN) || rawText.match(/\([A-Z]{2,3}\s*-\s*[pP]\)/);
   if (publicMatch) {
     isPublic = true;
-    // Remove marker if it exists as a standalone suffix or is part of the text body
     text = text.replace(PUBLIC_MARKER_PATTERN, '');
   }
 
   // 3. Detect and extract Staff Initials
-  // We check the modified text. Pattern handles missing brackets on one side.
   const initialsMatch = text.match(INITIALS_PATTERN);
   if (initialsMatch) {
-    // Group 1 matches start bracket case, Group 2 matches end bracket case
     staffInitials = initialsMatch[1] || initialsMatch[2];
     text = text.replace(initialsMatch[0], ' ');
   }
   
-  // Clean up any double spaces created by removals and trim
-  text = text.replace(/\s\s+/g, ' ').replace(/\(\s*\)/g, '').trim();
-  
-  // Special cleanup for stray punctuation often left behind
-  text = text.replace(/\s+-\s*$/, '');
+  // 4. Robust Cleanup and Balancing
+  text = cleanAndBalanceText(text);
 
   return {
     description: text,
@@ -92,27 +123,21 @@ const extractEventDetails = (rawText: string): ExtractionResult => {
 const parseExcelDate = (excelDate: any): Date | null => {
   if (!excelDate) return null;
   
-  // 1. Handle JS Date objects (returned by SheetJS when cellDates: true)
   if (excelDate instanceof Date) {
     if (isNaN(excelDate.getTime())) return null;
     return excelDate;
   }
 
-  // 2. If it's a number (Excel serial date)
   if (typeof excelDate === 'number') {
     const date = new Date(Math.round((excelDate - 25569) * 86400 * 1000));
     return date;
   }
   
-  // 3. If it's a string
   if (typeof excelDate === 'string') {
     const trimmed = excelDate.trim();
-    
-    // Try standard constructor
     const d = new Date(trimmed);
     if (!isNaN(d.getTime()) && d.getFullYear() > 2000) return d;
     
-    // Try d-MMM-yy format (e.g., "5-Aug-24")
     const parts = trimmed.match(/^(\d{1,2})[ -]([A-Za-z]{3})[ -](\d{2,4})$/);
     if (parts) {
       const day = parseInt(parts[1], 10);
@@ -135,10 +160,7 @@ const parseExcelDate = (excelDate: any): Date | null => {
   return null;
 };
 
-// Dynamic Column Detection
 const detectStructure = (data: any[][], onLog: (l: ProcessingLog) => void): SheetStructure => {
-  // 1. Find Header Row
-  // We look for "During the college day" or "From the end of the college day"
   let headerRowIndex = -1;
   let dayEventsColIndex = -1;
   let eveningEventsColIndex = -1;
@@ -153,7 +175,6 @@ const detectStructure = (data: any[][], onLog: (l: ProcessingLog) => void): Shee
         headerRowIndex = i;
         dayEventsColIndex = j;
       } else if (cell.includes("from the end of the college day")) {
-        // If we haven't found headerRowIndex yet, set it (though usually During comes first)
         if (headerRowIndex === -1) headerRowIndex = i;
         eveningEventsColIndex = j;
       }
@@ -166,16 +187,12 @@ const detectStructure = (data: any[][], onLog: (l: ProcessingLog) => void): Shee
     throw new Error("Could not find header row (looked for 'During the college day'). File structure might be invalid.");
   }
 
-  // 2. Find Date Column
-  // It's usually to the left of the Day Events column.
-  // We will scan the first 15 rows of DATA to see which column has date-like values.
   let dateColIndex = -1;
-  const potentialCols: {[key: number]: number} = {}; // colIndex -> dateMatchCount
+  const potentialCols: {[key: number]: number} = {}; 
   
   for (let i = headerRowIndex + 1; i < Math.min(data.length, headerRowIndex + 15); i++) {
     const row = data[i];
     if (!row) continue;
-    // Check columns to the left of dayEventsColIndex
     for (let j = 0; j < dayEventsColIndex; j++) {
        if (parseExcelDate(row[j])) {
          potentialCols[j] = (potentialCols[j] || 0) + 1;
@@ -183,7 +200,6 @@ const detectStructure = (data: any[][], onLog: (l: ProcessingLog) => void): Shee
     }
   }
 
-  // Pick the column with the most date matches
   let maxMatches = 0;
   Object.entries(potentialCols).forEach(([colStr, matches]) => {
     if (matches > maxMatches) {
@@ -192,14 +208,11 @@ const detectStructure = (data: any[][], onLog: (l: ProcessingLog) => void): Shee
     }
   });
 
-  // Fallback: if no dates found, assume it's immediately to the left of Day Events, or 1 column gap?
-  // In the image: Date is C (2), During is D (3). So index - 1.
   if (dateColIndex === -1) {
      dateColIndex = Math.max(0, dayEventsColIndex - 1);
-     onLog({ id: 's1', timestamp: new Date(), message: `Warning: Could not auto-detect date column. Defaulting to column ${dateColIndex} (immediately left of events).`, type: 'warning' });
+     onLog({ id: 's1', timestamp: new Date(), message: `Warning: Could not auto-detect date column. Defaulting to column ${dateColIndex}.`, type: 'warning' });
   }
 
-  // Fallback for Evening events if not found by header name
   if (eveningEventsColIndex === -1) {
     eveningEventsColIndex = dayEventsColIndex + 1;
   }
@@ -238,20 +251,16 @@ export const parseWorkbook = async (
         onLog({ id: '2', timestamp: new Date(), message: `Processing sheet: ${sheetName}`, type: 'info' });
         
         const worksheet = workbook.Sheets[sheetName];
-        
-        // Convert to JSON array of arrays (header: 1)
         const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 }) as any[][];
         
         if (jsonData.length < 2) {
             throw new Error("Sheet appears to be empty or malformed.");
         }
 
-        // Detect Structure
         let structure: SheetStructure;
         try {
            structure = detectStructure(jsonData, onLog);
         } catch (err: any) {
-           // Fallback to defaults if detection fails completely
            onLog({ id: 'err1', timestamp: new Date(), message: `Detection failed: ${err.message}. Trying default indices.`, type: 'warning' });
            structure = { headerRowIndex: 0, dateColIndex: 2, dayEventsColIndex: 3, eveningEventsColIndex: 4 };
         }
@@ -260,12 +269,10 @@ export const parseWorkbook = async (
         let currentDate: Date | null = null;
         let rowCount = 0;
 
-        // Iterate starting from the row AFTER the header
         for (let i = structure.headerRowIndex + 1; i < jsonData.length; i++) {
           const row = jsonData[i];
           if (!row || row.length === 0) continue;
 
-          // Date Column
           const cellDate = row[structure.dateColIndex];
           if (cellDate) {
             const parsedDate = parseExcelDate(cellDate);
@@ -276,7 +283,6 @@ export const parseWorkbook = async (
 
           if (!currentDate) continue; 
 
-          // During college day
           const dayEventsCell = row[structure.dayEventsColIndex];
           if (dayEventsCell) {
              const rawEvents = String(dayEventsCell).split(/\r?\n/);
@@ -297,7 +303,6 @@ export const parseWorkbook = async (
              });
           }
 
-          // After college day
           const eveningEventsCell = row[structure.eveningEventsColIndex];
           if (eveningEventsCell) {
             const rawEvents = String(eveningEventsCell).split(/\r?\n/);
@@ -321,10 +326,10 @@ export const parseWorkbook = async (
           rowCount++;
         }
 
-        onLog({ id: '3', timestamp: new Date(), message: `Scanned ${rowCount} data rows (dates found).`, type: 'info' });
+        onLog({ id: '3', timestamp: new Date(), message: `Scanned ${rowCount} data rows.`, type: 'info' });
         
         if (events.length === 0) {
-            onLog({ id: '4', timestamp: new Date(), message: `No events extracted. Please check if the 'During the college day' column is populated.`, type: 'warning' });
+            onLog({ id: '4', timestamp: new Date(), message: `No events extracted.`, type: 'warning' });
         } else {
             onLog({ id: '4', timestamp: new Date(), message: `Successfully extracted ${events.length} events.`, type: 'success' });
         }

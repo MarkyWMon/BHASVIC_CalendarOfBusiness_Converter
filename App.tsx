@@ -64,12 +64,10 @@ const App: React.FC = () => {
 
       // 3. Generate ICS Strings
       addLog('Generating ICS file content...', 'info');
-      // Main calendar respects the option
       const mainIcsContent = generateICS(allEvents, options.includeInitials);
       
       let publicIcsContent: string | null = null;
       if (options.createPublicCalendar && publicEvents.length > 0) {
-        // Public calendar ALWAYS excludes initials
         publicIcsContent = generateICS(publicEvents, false);
       } else if (options.createPublicCalendar) {
         addLog('Skipping public calendar generation (no public events found).', 'warning');
@@ -77,22 +75,31 @@ const App: React.FC = () => {
 
       // 4. Generate CSV Strings
       addLog('Generating CSV file content...', 'info');
-      // Main calendar respects the option
       const mainCsvContent = generateCSV(allEvents, options.includeInitials);
       const publicCsvContent = (options.createPublicCalendar && publicEvents.length > 0) 
-        // Public calendar ALWAYS excludes initials
         ? generateCSV(publicEvents, false) 
         : null;
 
       // 5. Generate PDFs
       addLog('Generating PDF documents...', 'info');
-      // Main calendar: Include initials (if selected), SHOW Public column
-      // Note: generatePDF is now async to handle image fetching
-      const mainPdfBlob = await generatePDF(allEvents, options.includeInitials, 'Calendar of Business', true);
+      const configuredDefaultTimes = { start: options.defaultStartTime, end: options.defaultEndTime };
+      
+      const mainPdfBlob = await generatePDF(
+        allEvents, 
+        options.includeInitials, 
+        'Calendar of Business', 
+        true, 
+        configuredDefaultTimes
+      );
       
       const publicPdfBlob = (options.createPublicCalendar && publicEvents.length > 0)
-        // Public calendar: Exclude initials, HIDE Public column, Title: "Public Calendar" (implicitly BHASVIC Public Calendar)
-        ? await generatePDF(publicEvents, false, 'Public Calendar', false)
+        ? await generatePDF(
+            publicEvents, 
+            false, 
+            'Public Calendar', 
+            false, 
+            configuredDefaultTimes // Use the configured defaults for public PDF as well
+          )
         : null;
 
       setResult({
