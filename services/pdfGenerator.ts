@@ -92,7 +92,7 @@ export const generatePDF = async (
     doc.setFontSize(7.5);
     doc.setFont('helvetica', 'italic');
     doc.setTextColor(COLORS.gray[0], COLORS.gray[1], COLORS.gray[2]);
-    const caveat = "Details about timings for all day events will be published nearer the time.";
+    const caveat = "Details about timings all day events will be published nearer the time.";
     doc.text(caveat, 14, 39);
   }
 

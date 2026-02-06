@@ -3,9 +3,10 @@ import { CalendarEvent } from '../types';
 
 interface EventPreviewProps {
   events: CalendarEvent[];
+  defaultTimes?: { start: string, end: string };
 }
 
-const EventPreview: React.FC<EventPreviewProps> = ({ events }) => {
+const EventPreview: React.FC<EventPreviewProps> = ({ events, defaultTimes }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [selectedMonth, setSelectedMonth] = useState<string>('all');
 
@@ -47,8 +48,8 @@ const EventPreview: React.FC<EventPreviewProps> = ({ events }) => {
         </div>
         
         <div className="flex items-center w-full sm:w-auto">
-          <label htmlFor="month-filter" className="sr-only">Filter by Month</label>
-          <div className="relative w-full sm:w-48">
+          <label htmlFor="month-filter" className="text-white/70 text-xs uppercase font-bold mr-3 hidden sm:block">Filter Month:</label>
+          <div className="relative w-full sm:w-56">
             <select
               id="month-filter"
               value={selectedMonth}
@@ -58,7 +59,7 @@ const EventPreview: React.FC<EventPreviewProps> = ({ events }) => {
               }}
               className="w-full bg-white/10 text-white border border-white/20 px-3 py-2 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-bhasvic-red appearance-none cursor-pointer hover:bg-white/20 transition-colors"
             >
-              <option value="all" className="text-black">All Months</option>
+              <option value="all" className="text-black">Show All Months</option>
               {monthOptions.map(month => (
                 <option key={month} value={month} className="text-black">{month}</option>
               ))}
@@ -80,43 +81,49 @@ const EventPreview: React.FC<EventPreviewProps> = ({ events }) => {
                 </span>
               </div>
               <div className="divide-y divide-gray-100">
-                {monthEvents.map((event, idx) => (
-                  <div key={event.uid + idx} className="px-6 py-4 hover:bg-gray-50 transition-colors flex flex-col sm:flex-row sm:items-center gap-4">
-                    
-                    {/* Date Badge */}
-                    <div className="flex-shrink-0 flex sm:flex-col items-baseline sm:items-center w-16 text-gray-500">
-                      <span className="text-2xl font-bold font-display text-gray-800 leading-none">
-                        {event.date.getDate().toString().padStart(2, '0')}
-                      </span>
-                      <span className="text-xs uppercase font-medium ml-2 sm:ml-0">
-                        {event.date.toLocaleString('en-GB', { weekday: 'short' })}
-                      </span>
-                    </div>
-
-                    {/* Time & Details */}
-                    <div className="flex-grow min-w-0">
-                      <div className="flex items-center text-sm text-bhasvic-lightNavy mb-1">
-                        <svg className="w-4 h-4 mr-1 opacity-70" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                        <span className="font-mono">{event.startTime} - {event.endTime}</span>
-                        {event.isPublic && (
-                          <span className="ml-3 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-orange-100 text-orange-800">
-                            Public
-                          </span>
-                        )}
+                {monthEvents.map((event, idx) => {
+                  const isAllDay = defaultTimes && event.startTime === defaultTimes.start && event.endTime === defaultTimes.end;
+                  
+                  return (
+                    <div key={event.uid + idx} className="px-6 py-4 hover:bg-gray-50 transition-colors flex flex-col sm:flex-row sm:items-center gap-4">
+                      
+                      {/* Date Badge */}
+                      <div className="flex-shrink-0 flex sm:flex-col items-baseline sm:items-center w-16 text-gray-500">
+                        <span className="text-2xl font-bold font-display text-gray-800 leading-none">
+                          {event.date.getDate().toString().padStart(2, '0')}
+                        </span>
+                        <span className="text-xs uppercase font-medium ml-2 sm:ml-0">
+                          {event.date.toLocaleString('en-GB', { weekday: 'short' })}
+                        </span>
                       </div>
-                      <p className="text-gray-900 font-medium font-display truncate pr-4" title={event.description}>
-                        {event.description} 
-                        {event.staffInitials && <span className="text-gray-400 font-normal ml-1">({event.staffInitials})</span>}
-                      </p>
+
+                      {/* Time & Details */}
+                      <div className="flex-grow min-w-0">
+                        <div className="flex items-center text-sm mb-1">
+                          <svg className="w-4 h-4 mr-1 text-bhasvic-lightNavy opacity-70" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                          <span className={`font-mono ${isAllDay ? 'text-bhasvic-red font-bold' : 'text-bhasvic-lightNavy'}`}>
+                            {isAllDay ? 'All Day' : `${event.startTime} - ${event.endTime}`}
+                          </span>
+                          {event.isPublic && (
+                            <span className="ml-3 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-orange-100 text-orange-800">
+                              Public
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-gray-900 font-medium font-display truncate pr-4" title={event.description}>
+                          {event.description} 
+                          {event.staffInitials && <span className="text-gray-400 font-normal ml-1">({event.staffInitials})</span>}
+                        </p>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           ))
         ) : (
-          <div className="p-12 text-center text-gray-400 font-light">
-            No events found for the selected criteria.
+          <div className="p-12 text-center text-gray-400 font-light font-display">
+            No events found for the selected month.
           </div>
         )}
       </div>
@@ -133,7 +140,10 @@ const EventPreview: React.FC<EventPreviewProps> = ({ events }) => {
         <button 
           onClick={() => {
             setIsExpanded(false);
-            window.scrollTo({ top: document.querySelector('.bg-bhasvic-navy')?.getBoundingClientRect().top ?? 0 + window.scrollY - 100, behavior: 'smooth' });
+            const header = document.querySelector('.bg-bhasvic-navy');
+            if (header) {
+              header.scrollIntoView({ behavior: 'smooth' });
+            }
           }}
           className="w-full py-3 text-center text-sm font-bold text-bhasvic-navy hover:bg-gray-50 border-t border-gray-100 transition-colors font-display"
         >

@@ -98,7 +98,7 @@ const App: React.FC = () => {
             false, 
             'Public Calendar', 
             false, 
-            configuredDefaultTimes // Use the configured defaults for public PDF as well
+            configuredDefaultTimes 
           )
         : null;
 
@@ -295,8 +295,11 @@ const App: React.FC = () => {
                 </div>
               </div>
 
-              {/* Event Preview Section */}
-              <EventPreview events={result.allEvents} />
+              {/* Event Preview Section - Now passing default times */}
+              <EventPreview 
+                events={result.allEvents} 
+                defaultTimes={{ start: options.defaultStartTime, end: options.defaultEndTime }} 
+              />
             </div>
           )}
         </div>
